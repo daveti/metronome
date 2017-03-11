@@ -8,7 +8,7 @@
   <body>
 
     <div class="container" style="padding-top: 50px;">
-      <div class="jumbotron text-center">
+      <div id="bgm" class="jumbotron text-center">
 
         <h1>BPM: <span id="bpm_text">0</span></h1>
 
@@ -18,9 +18,9 @@
 
         <div class="row" style="padding: 10px;">
           <div class="input-group" style="width: 200px; margin: auto;">
-            <input type="text" class="form-control">
+            <input id="bpm_value" type="text" class="form-control">
             <div class="input-group-btn">
-              <button type="button" class="btn btn-default">PUT</button>
+              <button id="put_bpm" type="button" class="btn btn-default">PUT</button>
             </div>
           </div>
         </div>
@@ -28,20 +28,24 @@
         <div class="well text-left" style="margin-top: 30px;">
           <h4>Statistics</h4>
           <div class="row center-block" style="padding: 10px; padding-bottom: 20px;">
-            <h5>Minimum BPM: <span>0</span></h5>
-            <h5>Maximum BPM: <span>0</span></h5>
+            <h5>Minimum BPM: <span id="bpm_min_text">0</span></h5>
+            <h5>Maximum BPM: <span id="bpm_max_text">0</span></h5>
           </div>
           <div class="row center-block">
-            <button type="button" class="btn btn-danger">RESET</button>
+            <button id="reset_bpm" type="button" class="btn btn-danger">RESET</button>
           </div>
         </div>
 
       </div>
     </div>
 
+    <audio id="audio" src="http://www.soundjay.com/button/button-16.mp3" autostart="false" ></audio>
+
     <script type="text/javascript" src="js/jquery-2.1.4.min.js"></script>
     <script type="text/javascript" src="js/socket.io.js"></script>
     <script type="text/javascript">
+      var audio_id = -1;
+      var blink_id = -1;
       $(function() {
         // Create a new WebSocket
         var socket = io();
@@ -49,15 +53,59 @@
         // When the html element with the ID get_bpm is clicked, send a message
         $('#get_bpm').on('click', function() {
           // get-bpm does not need to send any parameters
-          socket.emit('get-bpm', {});
+	  socket.emit('get-bpm', {});
         });
 
-        // When the bpm response is received from the server, render the result
-        socket.on('bpm', function(data) {
-          console.log('bpm', data);
+        // When the bpm response/update is received from the server, render the result
+        socket.on('bpm_current', function(data) {
+          console.log('bpm_current', data);
           // Set the html tag value for the coresponding ID to the data
-          $('#bpm_text').html(data.value);
-        });
+	  $('#bpm_text').html(data.value);
+	  // Convert the bpm into interval
+	  var interval = 1000.0/(parseFloat(data.value)/60);
+	  if (audio_id != -1)
+	  	clearInterval(audio_id);
+	  if (blink_id != -1)
+	  	clearInterval(blink_id);
+	  // Play the click sound
+	  audio_id = setInterval(function(){
+		  var sound = document.getElementById("audio");
+		  sound.play();}, interval);
+	  // Blink the background
+	  var blink = false;
+	  blink_id = setInterval(function(){
+		  $("#bgm").css("background-color", function () {
+			this.switch = !this.switch
+			return this.switch ? "green" : ""
+		  });}, interval)
+	});
+
+        // When the html element with the ID put_bpm is clicked, send a message
+        $('#put_bpm').on('click', function() {
+          // put-bpm needs to send the new bpm value 
+	  socket.emit('put-bpm', {value: document.getElementById("bpm_value").value});
+	});
+
+        // When the html element with the ID reset_bpm is clicked, send a message
+        $('#reset_bpm').on('click', function() {
+          // reset-bpm does not needs to send any parameters
+          socket.emit('reset-bpm', {});
+	});
+
+        // When the bpm_min update is received from the server, render the result
+        socket.on('bpm_min', function(data) {
+          console.log('bpm_min', data);
+          // Set the html tag value for the coresponding ID to the data
+          $('#bpm_min_text').html(data.value);
+	});
+
+        // When the bpm_max update is received from the server, render the result
+        socket.on('bpm_max', function(data) {
+          console.log('bpm_max', data);
+          // Set the html tag value for the coresponding ID to the data
+          $('#bpm_max_text').html(data.value);
+	});
+
       });
     </script>
 

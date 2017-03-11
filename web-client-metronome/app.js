@@ -26,18 +26,73 @@ listen(function(socket)
 	// Use the socket to communicate with them
 	socket.on('get-bpm', function()
 	{
-		mbed.getResourceValue(endpoint, '3318/0/5700', function(err, data)
+		mbed.getResourceValue(endpoint, '3318/0/5900', function(err, data)
 		{
 			if (err)
 				throw err;
 
-			socket.emit('bpm', { value: data });
+			socket.emit('bpm_current', { value: data });
+		});
+		mbed.getResourceValue(endpoint, '3318/0/5601', function(err, data)
+		{
+			if (err)
+				throw err;
+
+			socket.emit('bpm_min', { value: data });
+		});
+		mbed.getResourceValue(endpoint, '3318/0/5602', function(err, data)
+		{
+			if (err)
+				throw err;
+
+			socket.emit('bpm_max', { value: data });
 		});
 	});
+
+	socket.on('put-bpm', function(bpm)
+	{
+		mbed.putResourceValue(endpoint, '3318/0/5900', bpm.value, function(err, data)
+		{
+			if (err)
+				throw err;
+			
+			// Update the bpm along the way
+			socket.emit('bpm_current', { value: bpm.value });
+		});
+	});
+
+	socket.on('reset-bpm', function()
+	{
+		mbed.postResource(endpoint, '3318/0/5605', '0', function(err, data)
+		{
+			if (err)
+				throw err;
+
+			// update along the way
+			socket.emit('bpm_min', { value: '0'});
+			socket.emit('bpm_max', { value: '0'});
+		});
+	});
+
 }, function(socket, notification)
 {
 	// An API endpoint has been updated, and Device Connector is telling us
 	// Use the socket to relay the notification to the currently connected users
+	
+	// Should check the notification object to figure out
+	// Get the payload anyway
+	console.log(notification);
+	var data = notification.payload;
+	if (notification.path == '/3318/0/5900') {
+		// Update bpm_current
+		socket.emit('bpm_current', { value: data });
+	} else if (notification.path == '/3318/0/5601') {
+		// Update bpm_min
+		socket.emit('bpm_min', { value: data });
+	} else if (notification.path == '/3318/0/5602') {
+		// Update bpm_max
+		socket.emit('bpm_max', { value: data });
+	}
 });
 
 // Handle routing of pages
@@ -86,6 +141,11 @@ function listen(user_callback, mbed_callback)
 		// Call the function you specified
 		user_callback(socket);
 	});
+
+	// Subscribe all GET resources
+	mbed.putResourceSubscription(endpoint, '/3318/0/5900');
+	mbed.putResourceSubscription(endpoint, '/3318/0/5601');
+	mbed.putResourceSubscription(endpoint, '/3318/0/5602');
 
 	// A GET endpoint has changed
 	mbed.on('notification', function(notification)
