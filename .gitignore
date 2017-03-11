@@ -32,3 +32,6 @@ yotta_targets/
 build/
 .yotta.json
 source/security.h
+
+# Node
+node_modules
